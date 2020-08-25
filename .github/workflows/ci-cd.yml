@@ -35,10 +35,6 @@ jobs:
           7z e -bd rootfs.simg.7z
           simg2img rootfs.simg rootfs.img
           sudo mkdir -p /mnt/rootfs
-          for i in {0..9}
-          do
-            sudo mknod /dev/loop$i b 7 $i
-          done
           sudo mount -t ext4 -o rw,loop,auto rootfs.img /mnt/rootfs
           sudo mount -t devpts devpts /mnt/rootfs/dev/pts
           sudo mount -t sysfs sysfs /mnt/rootfs/sys
