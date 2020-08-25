@@ -8,7 +8,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     steps:
       - name: install pre-reqs
@@ -67,4 +66,27 @@ jobs:
           rm -f rootfs.simg.7z
           7z a -bd rootfs.simg.7z rootfs.simg
 
-      
+      - name: get upload-url
+        id: get-upload-url
+        run: |
+          UPLOAD_URL=$(curl -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/nihospr01/OpenSpeechPlatform-UCSD/releases/latest 2>/dev/null | sed -n 's/"upload_url": "\(.*\)",/\1/p')
+          echo "::set-output name=upload_url::$UPLOAD_URL"
+
+      - name: upload boot.img
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get-upload-url.outputs.upload_url }}
+          asset_path: boot.img
+          asset_name: boot.img
+
+      - name: upload rootfs
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get-upload-url.outputs.upload_url }}
+          asset_path: rootfs.simg.7z
+          asset_name: rootfs.simg.7z
