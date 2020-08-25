@@ -1,0 +1,82 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ debian-ucsd-ospboard-20.07 ]
+  pull_request:
+    branches: [ debian-ucsd-ospboard-20.07 ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: install pre-reqs
+        run: |
+          apt-get update -y
+          apt-get install -y apt-utils  build-essential crossbuild-essential-arm64 \
+                                        p7zip-full gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+                                        cpp-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+                                        flex bison automake libtool bc libfdt-dev \
+                                        libncurses5-dev dialog simg2img img2simg \
+                                        initramfs-tools android-tools-mkbootimg
+
+      - uses: actions/checkout@v2
+
+      - name: download files
+        run: |
+          wget -O initrd.img 'https://docs.google.com/uc?export=download&id=1lRiVGu6mNroZietOP-4tZ3yGly6GCrEz'
+          wget --save-cookies cookies.txt 'https://docs.google.com/uc?export=download&id=1VnM-jsUHrGd8fq7UCD_NTL9Q69FS4ZqV' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1/p' > confirm.txt
+          wget --load-cookies cookies.txt -O rootfs.simg.7z 'https://docs.google.com/uc?export=download&id=1VnM-jsUHrGd8fq7UCD_NTL9Q69FS4ZqV&confirm='$(cat confirm.txt)
+          rm -f confirm.txt cookies.txt
+      
+      - name: mount rootfs
+        run: |
+          7z e -bd rootfs.simg.7z
+          simg2img rootfs.simg rootfs.img
+          mkdir -p /mnt/rootfs
+          for i in {0..9}
+          do
+            mknod /dev/loop$i b 7 $i
+          done
+          losetup
+          mount -t ext4 -o rw,loop,auto rootfs.img /mnt/rootfs
+          mount -t devpts devpts /mnt/rootfs/dev/pts
+          mount -t sysfs sysfs /mnt/rootfs/sys
+          mount -t proc prof /mnt/rootfs/proc
+      
+      - name: build firware
+        env: 
+          ARCH: arm64
+          CROSS_COMPILE: aarch64-linux-gnu-
+        run: |
+          make ospboard_defconfig
+          make image.gz modules dtbs
+          -E make modules_install INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=/mnt/rootfs
+          cat arch/arm64/boot/Image.gz arch/arm64/boot/dts/qcom/apq8016-sbc.dtb > Image.gz+dtb
+          mkbootimg --kernel Image.gz+dtb \
+                    --ramdisk initrd.img \
+                    --output boot.img \
+                    --pagesize 2048 \
+                    --base 0x80000000 \
+                    --cmdline "root=/dev/mmcblk0p10 rw rootwait console=ttyMSM0,115200n8"
+          cat arch/arm64/boot/Image.gz arch/arm64/boot/dts/qcom/ospboardv7.dtb > $OSP_BUILD/Image.gz+dtb
+          mkbootimg --kernel $OSP_BUILD/Image.gz+dtb \
+                    --ramdisk $OSP_ROOT/share/initrd.img \
+                    --output $OSP_BUILD/boot-v7.img \
+                    --pagesize 2048 \
+                    --base 0x80000000 \
+                    --cmdline "root=/dev/mmcblk0p10 rw rootwait console=ttyMSM0,115200n8"
+          rm -f Image.gz+dtb
+          
+      - name: update rootfs
+        run: |
+          umount /mnt/rootfs/proc
+          umount /mnt/rootfs/sys
+          umount /mnt/rootfs/dev/pts
+          umount /mnt/rootfs
+          img2simg rootfs.img rootfs.simg
+          rm -f rootfs.simg.7z
+          7z a -bd rootfs.simg.7z rootfs.simg
+
+      
