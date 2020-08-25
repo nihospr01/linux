@@ -40,25 +40,18 @@ jobs:
           sudo mount -t sysfs sysfs /mnt/rootfs/sys
           sudo mount -t proc prof /mnt/rootfs/proc
       
-      - name: build firware
+      - name: build firmware
         env: 
           ARCH: arm64
           CROSS_COMPILE: aarch64-linux-gnu-
         run: |
-          make ospboard_defconfig
+          make defconfig distro.config
           make image.gz modules dtbs
           sudo make modules_install INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=/mnt/rootfs
           cat arch/arm64/boot/Image.gz arch/arm64/boot/dts/qcom/apq8016-sbc.dtb > Image.gz+dtb
           mkbootimg --kernel Image.gz+dtb \
                     --ramdisk initrd.img \
                     --output boot.img \
-                    --pagesize 2048 \
-                    --base 0x80000000 \
-                    --cmdline "root=/dev/mmcblk0p10 rw rootwait console=ttyMSM0,115200n8"
-          cat arch/arm64/boot/Image.gz arch/arm64/boot/dts/qcom/ospboardv7.dtb > Image.gz+dtb
-          mkbootimg --kernel Image.gz+dtb \
-                    --ramdisk initrd.img \
-                    --output boot-v7.img \
                     --pagesize 2048 \
                     --base 0x80000000 \
                     --cmdline "root=/dev/mmcblk0p10 rw rootwait console=ttyMSM0,115200n8"
