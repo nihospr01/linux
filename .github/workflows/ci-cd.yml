@@ -2,9 +2,8 @@ name: CI/CD
 
 on:
   push:
-    branches: [ debian-ucsd-ospboard-20.07 ]
-  pull_request:
-    branches: [ debian-ucsd-ospboard-20.07 ]
+    tags:
+      - debian-ucsd-ospboard-20.07.*
 
 jobs:
   build:
@@ -13,7 +12,7 @@ jobs:
       - name: install pre-reqs
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y       build-essential crossbuild-essential-arm64 \
+          sudo apt-get install -y       build-essential crossbuild-essential-arm64 libssl-dev \
                                         p7zip-full gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
                                         cpp-aarch64-linux-gnu binutils-aarch64-linux-gnu \
                                         flex bison automake libtool bc libfdt-dev \
@@ -25,6 +24,7 @@ jobs:
       - name: download files
         run: |
           wget -O initrd.img 'https://docs.google.com/uc?export=download&id=1lRiVGu6mNroZietOP-4tZ3yGly6GCrEz'
+          cp initrd.img boot.img
           # wget --save-cookies cookies.txt 'https://docs.google.com/uc?export=download&id=1VnM-jsUHrGd8fq7UCD_NTL9Q69FS4ZqV' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1/p' > confirm.txt
           # wget --load-cookies cookies.txt -O rootfs.simg.7z 'https://docs.google.com/uc?export=download&id=1VnM-jsUHrGd8fq7UCD_NTL9Q69FS4ZqV&confirm='$(cat confirm.txt)
           # rm -f confirm.txt cookies.txt
@@ -66,20 +66,23 @@ jobs:
       #     rm -f rootfs.simg.7z
       #     7z a -bd rootfs.simg.7z rootfs.simg
 
-      - name: get upload-url
-        id: get-upload-url
-        run: |
-          UPLOAD_URL=$(curl -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/nihospr01/OpenSpeechPlatform-UCSD/releases/latest 2>/dev/null | sed -n 's/"upload_url": "\(.*\)",/\1/p')
-          echo "::set-output name=upload_url::$UPLOAD_URL"
-          cp initrd.img boot.img
+      - name: create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
 
       - name: upload boot.img
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.get-upload-url.outputs.upload_url }}
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: boot.img
           asset_name: boot.img
           asset_content_type: application/x-raw-disk-image
