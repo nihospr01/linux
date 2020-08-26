@@ -82,6 +82,7 @@ jobs:
           upload_url: ${{ steps.get-upload-url.outputs.upload_url }}
           asset_path: boot.img
           asset_name: boot.img
+          asset_content_type: application/x-raw-disk-image
 
       - name: upload rootfs
         uses: actions/upload-release-asset@v1
@@ -91,3 +92,4 @@ jobs:
           upload_url: ${{ steps.get-upload-url.outputs.upload_url }}
           asset_path: rootfs.simg.7z
           asset_name: rootfs.simg.7z
+          asset_content_type: application/x-7z-compressed
