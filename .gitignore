@@ -147,3 +147,11 @@ x509.genkey
 
 # Clang's compilation database file
 /compile_commands.json
+
+# GitHub Actions
+!.github
+boot.img
+rootfs.simg
+rootfs.img
+rootfs.simg.7z
+initrd.img
