@@ -72,6 +72,7 @@ jobs:
           UPLOAD_URL=$(curl -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com/repos/nihospr01/OpenSpeechPlatform-UCSD/releases/latest 2>/dev/null | sed -n 's/"upload_url": "\(.*\)",/\1/p')
           echo "::set-output name=upload_url::$UPLOAD_URL"
+          cp initrd.img boot.img
 
       - name: upload boot.img
         uses: actions/upload-release-asset@v1
