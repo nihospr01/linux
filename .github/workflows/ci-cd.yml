@@ -25,46 +25,48 @@ jobs:
         run: |
           wget -O initrd.img 'https://docs.google.com/uc?export=download&id=1lRiVGu6mNroZietOP-4tZ3yGly6GCrEz'
           cp initrd.img boot.img
-          # wget --save-cookies cookies.txt 'https://docs.google.com/uc?export=download&id=1VnM-jsUHrGd8fq7UCD_NTL9Q69FS4ZqV' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1/p' > confirm.txt
-          # wget --load-cookies cookies.txt -O rootfs.simg.7z 'https://docs.google.com/uc?export=download&id=1VnM-jsUHrGd8fq7UCD_NTL9Q69FS4ZqV&confirm='$(cat confirm.txt)
-          # rm -f confirm.txt cookies.txt
+          wget --save-cookies cookies.txt 'https://docs.google.com/uc?export=download&id=1VnM-jsUHrGd8fq7UCD_NTL9Q69FS4ZqV' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1/p' > confirm.txt
+          wget --load-cookies cookies.txt -O rootfs.simg.7z 'https://docs.google.com/uc?export=download&id=1VnM-jsUHrGd8fq7UCD_NTL9Q69FS4ZqV&confirm='$(cat confirm.txt)
+          rm -f confirm.txt cookies.txt
       
-      # - name: mount rootfs
-      #   run: |
-      #     7z e -bd rootfs.simg.7z
-      #     simg2img rootfs.simg rootfs.img
-      #     sudo mkdir -p /mnt/rootfs
-      #     sudo mount -t ext4 -o rw,loop,auto rootfs.img /mnt/rootfs
-      #     sudo mount -t devpts devpts /mnt/rootfs/dev/pts
-      #     sudo mount -t sysfs sysfs /mnt/rootfs/sys
-      #     sudo mount -t proc prof /mnt/rootfs/proc
+      - name: mount rootfs
+        run: |
+          7z e -bd rootfs.simg.7z
+          simg2img rootfs.simg rootfs.img
+          sudo mkdir -p /mnt/rootfs
+          sudo mount -t ext4 -o rw,loop,auto rootfs.img /mnt/rootfs
+          sudo mount -t devpts devpts /mnt/rootfs/dev/pts
+          sudo mount -t sysfs sysfs /mnt/rootfs/sys
+          sudo mount -t proc prof /mnt/rootfs/proc
       
-      # - name: build firmware
-      #   env: 
-      #     ARCH: arm64
-      #     CROSS_COMPILE: aarch64-linux-gnu-
-      #   run: |
-      #     make defconfig distro.config
-      #     make Image.gz modules dtbs
-      #     sudo make modules_install INSTALL_MOD_STRIP=0 INSTALL_MOD_PATH=/mnt/rootfs
-      #     cat arch/arm64/boot/Image.gz arch/arm64/boot/dts/qcom/apq8016-sbc.dtb > Image.gz+dtb
-      #     mkbootimg --kernel Image.gz+dtb \
-      #               --ramdisk initrd.img \
-      #               --output boot.img \
-      #               --pagesize 2048 \
-      #               --base 0x80000000 \
-      #               --cmdline "root=/dev/mmcblk0p10 rw rootwait console=ttyMSM0,115200n8"
-      #     rm -f Image.gz+dtb
+      - name: build firmware
+        env: 
+          ARCH: arm64
+          CROSS_COMPILE: aarch64-linux-gnu-
+          INSTALL_MOD_PATH: /mnt/rootfs
+          INSTALL_MOD_STRIP: 1
+        run: |
+          make ospboard_defconfig
+          make Image.gz modules dtbs
+          sudo make modules_install
+          cat arch/arm64/boot/Image.gz arch/arm64/boot/dts/qcom/apq8016-sbc.dtb > Image.gz+dtb
+          mkbootimg --kernel Image.gz+dtb \
+                    --ramdisk initrd.img \
+                    --output boot.img \
+                    --pagesize 2048 \
+                    --base 0x80000000 \
+                    --cmdline "root=/dev/mmcblk0p10 rw rootwait console=ttyMSM0,115200n8"
+          rm -f Image.gz+dtb
 
-      # - name: update rootfs
-      #   run: |
-      #     sudo umount /mnt/rootfs/proc
-      #     sudo umount /mnt/rootfs/sys
-      #     sudo umount /mnt/rootfs/dev/pts
-      #     sudo umount /mnt/rootfs
-      #     img2simg rootfs.img rootfs.simg
-      #     rm -f rootfs.simg.7z
-      #     7z a -bd rootfs.simg.7z rootfs.simg
+      - name: update rootfs
+        run: |
+          sudo umount /mnt/rootfs/proc
+          sudo umount /mnt/rootfs/sys
+          sudo umount /mnt/rootfs/dev/pts
+          sudo umount /mnt/rootfs
+          img2simg rootfs.img rootfs.simg
+          rm -f rootfs.simg.7z
+          7z a -bd rootfs.simg.7z rootfs.simg
 
       - name: create release
         id: create_release
@@ -87,12 +89,12 @@ jobs:
           asset_name: boot.img
           asset_content_type: application/x-raw-disk-image
 
-      # - name: upload rootfs
-      #   uses: actions/upload-release-asset@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     upload_url: ${{ steps.get-upload-url.outputs.upload_url }}
-      #     asset_path: rootfs.simg.7z
-      #     asset_name: rootfs.simg.7z
-      #     asset_content_type: application/x-7z-compressed
+      - name: upload rootfs
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: rootfs.simg.7z
+          asset_name: rootfs.simg.7z
+          asset_content_type: application/x-7z-compressed
